@@ -1,64 +1,129 @@
-/* ============================================================
-   service-worker.js — ÚNICO archivo.
-   ------------------------------------------------------------
-   - En local (Live Server) NO se registra: editas y se recarga solo.
-   - Al SUBIR: cambia SOLO este número (v1 -> v2 -> v3...). Nada más.
-   ============================================================ */
+const CACHE_NAME = 'cache-v7'; // Use a static or manually managed version
+const RESOURCES_TO_PRECACHE = [
+    'estilos/normalize.css?v7',
+    'estilos/styles.css?v7',
+    'estilos/mediaQueries.css?v7',
+    'javascript/script.js?v7',
+    // Add more resources here if needed
+];
 
-const VERSION = "v7";
-const CACHE = `invitacion-${VERSION}`;
-const FUENTES = "invitacion-fuentes";
+self.addEventListener('install', function(event) {
+    event.waitUntil(
+        caches.open(CACHE_NAME).then(function(cache) {
+            return cache.addAll(RESOURCES_TO_PRECACHE);
+        })
+    );
+    self.skipWaiting();
+});
 
-const BASE = ["./", "./index.html"];
+self.addEventListener('activate', function(event) {
+    // Clean up old caches
+    event.waitUntil(
+        caches.keys().then(function(cacheNames) {
+            return Promise.all(
+                cacheNames.map(function(cacheName) {
+                    if (cacheName !== CACHE_NAME) {
+                        return caches.delete(cacheName);
+                    }
+                })
+            );
+        })
+    );
+    self.clients.claim();
+});
 
-self.addEventListener("install", (e) => {
-    e.waitUntil(
-        caches
-            .open(CACHE)
-            .then((c) => Promise.all(BASE.map((u) => c.add(u).catch(() => null))))
-            .then(() => self.skipWaiting())
+self.addEventListener('fetch', function(event) {
+    // Check if the request is for an image
+    if (event.request.destination === 'image') {
+        event.respondWith(
+            caches.open(CACHE_NAME).then(function(cache) {
+                return fetch(event.request).then(function(response) {
+                    // Update the cache with the latest version of the image
+                    cache.put(event.request, response.clone());
+                    return response;
+                }).catch(function() {
+                    return caches.match(event.request);
+                });
+            })
+        );
+    } else {
+        // For other resources, serve from cache if available, otherwise fetch from network
+        event.respondWith(
+            caches.match(event.request).then(function(response) {
+                return response || fetch(event.request);
+            }).catch(function() {
+                return fetch(event.request);
+            })
+        );
+    }
+});
+
+
+
+
+/*const CACHE_NAME = 'cache-v145'; // Use a static or manually managed version
+const RESOURCES_TO_PRECACHE = [
+    'estilos/normalize.css?v145',
+    'estilos/styles.css?v145',
+    'estilos/mediaQueries.css?v145',
+    'javascript/script.js?v145',
+    'assets/imagenes?v145',
+    'assets/imagenes/promo1.webp?v145',
+    'assets/imagenes/promo2.webp?v145',
+    'assets/imagenes/promo3.webp?v145',
+    'assets/imagenes/promo4.webp?v145',
+    'assets/imagenes/promo5.webp?v145',
+    'assets/imagenes/promo6.webp?v145',
+    'assets/imagenes/promo7.webp?v145',
+    'assets/vectores?v143',
+    // Add more resources here
+];
+
+self.addEventListener('install', function(event) {
+    event.waitUntil(
+        caches.open(CACHE_NAME).then(function(cache) {
+            return cache.addAll(RESOURCES_TO_PRECACHE);
+        })
+    );
+    self.skipWaiting();
+});
+
+self.addEventListener('activate', function(event) {
+    // Clean up old caches
+    event.waitUntil(
+        caches.keys().then(function(cacheNames) {
+            return Promise.all(
+                cacheNames.map(function(cacheName) {
+                    if (cacheName !== CACHE_NAME) {
+                        return caches.delete(cacheName);
+                    }
+                })
+            );
+        })
+    );
+    self.clients.claim();
+});
+
+self.addEventListener('fetch', function(event) {
+    event.respondWith(
+        caches.open(CACHE_NAME).then(function(cache) {
+            return fetch(event.request).then(function(response) {
+                // Actualizar el cache con la versión más reciente del recurso
+                cache.put(event.request, response.clone());
+                return response;
+            }).catch(function() {
+                return caches.match(event.request);
+            });
+        })
     );
 });
 
-self.addEventListener("activate", (e) => {
-    e.waitUntil(
-        caches
-            .keys()
-            .then((nombres) =>
-                Promise.all(
-                    nombres
-                        .filter((n) => n !== CACHE && n !== FUENTES)
-                        .map((n) => caches.delete(n))
-                )
-            )
-            .then(() => self.clients.claim())
+self.addEventListener('fetch', function(event) {
+    event.respondWith(
+        caches.match(event.request).then(function(response) {
+            return response || fetch(event.request);
+        }).catch(function() {
+            return fetch(event.request);
+        })
     );
-});
-
-/* Caché primero; si no está, va a la red y guarda una copia. */
-self.addEventListener("fetch", (e) => {
-    if (e.request.method !== "GET") return;
-    e.respondWith(
-        caches.match(e.request).then(
-            (cacheada) =>
-                cacheada ||
-                fetch(e.request)
-                    .then((red) => {
-                        const url = new URL(e.request.url);
-                        const mismoOrigen = url.origin === self.location.origin;
-                        const esFuente = url.href.includes("fonts.g");
-                        if (mismoOrigen || esFuente) {
-                            const destino = esFuente ? FUENTES : CACHE;
-                            const copia = red.clone();
-                            caches.open(destino).then((c) => c.put(e.request, copia));
-                        }
-                        return red;
-                    })
-                    .catch(() => {
-                        if (e.request.mode === "navigate") {
-                            return caches.match("./index.html");
-                        }
-                    })
-        )
-    );
-});
+});*/
